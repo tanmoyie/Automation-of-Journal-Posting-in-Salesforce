@@ -1,0 +1,415 @@
+<!-- --- The visualforce page ------
+This page will display the NEW record creating page from where new Journal & Line Items will be created.
+Journal is the Master, Line Item is the Child object.
+Therefore, a Master record & multiple children of this Master record will be created. 
+Main files: 
+1. VF page: Current page
+2. Custom Controller: JournalNewClass22
+3. Typeahead Component: TypeAheadComponent2
+4. Component Controller: TypeAheadClass2
+5. Test Code (custom controller): JournalNew_Test
+6. Test Code (typeahead controller): TypeAheadClassTest2
+7. Trigger for duplicating fields: DuplicatingField_JournaltoLineItem
+8. Test class for duplicating fields: DuplicatingField_Test
+9. Select2 resource to be used in TypeAheadComponent2
+10. POST: a JavaScript button in Journal Detail page
+11. Reversal: a JS button in the Transaction detail page
+12. Post web services: an Apex class to perform required operation during the Reversal process of a posted transaction
+12. PostWebServices_test 
+13. Accounting App for Posting Journal – Explanation
+14. Illustration of different Journals (Bank, Manual, Sales, Payable)
+15. Birds Eye view of the Posting Automation - Accounting Application Process Flow
+
+
+Author: Tanmoy Das, Certified Salesforce Developer
+@December, 2016
+-->
+
+<apex:page controller="JournalNewClass22" docType="html-5.0" sidebar="false" id="thePage" standardStylesheets="true" >
+    <html>
+       <head>
+            <style>
+                *{
+                }
+                html{
+                background-color:#D4E6F1;
+                }
+                body{ 
+                margin: 1rem; 
+                border: 1 px ; 
+                }
+                .bPageBlock {
+                background-color: radial-gradient(red, red) !important; /* Standard syntax */
+                }
+                .pbHeader {
+                color: red;
+                }
+                .myFormStyle {
+                }
+                
+                body .bPageBlock .pbBody .blocksection3 .pbSubheader{
+                background-color:#D6EAF8;  face: Verdana; margin:0; // Change header color
+                }
+                .blocksection3{
+                margin:0; padding:0;<!-- box-shadow: 10px 10px 5px black; -->
+                }
+                h3{
+                clear:both;width: 95%; padding-left: 1rem; color: black; margin: 2% 2.5% 1% 2.5%; // content of header
+                }
+                #journal-1, #journal-2{
+                float: left; width: 45%; margin-left: 5%;
+                }
+                #line-item-table{
+                margin-left: 5%;
+                }
+                #accordion3{
+                padding-bottom: 3%;
+                }
+                .pageBlockTable {
+                margin:0; padding:0;
+                }
+                .lookupInput
+                {
+                display: inline;
+                vertical-align: middle;
+                white-space: nowrap;
+                }
+                .lookupInput img
+                {
+                background-repeat: no-repeat;
+                margin-right: .25em;
+                vertical-align: middle;
+                }
+                .lookupInput .disabled
+                {
+                background-color: #ccc;
+                }
+                .lookupInput .emptyDependentLookup
+                {
+                font-style: italic;
+                }
+                .lookupInput input[readonly]
+                {
+                background-color: #e6e6e6;
+                border: 2px solid #e6e6e6;
+                color: #333;
+                cursor: default;
+                }
+                .lookupInput a.readOnly
+                {
+                float: right;
+                }
+                .lookupInput span.readOnly
+                {
+                display: block;
+                white-space: normal;
+                }
+                .lookupInput span.totalSummary
+                {
+                font-weight: bold;
+                }
+                .inlineEditRequiredDiv .lookupInput img,.inlineEditDiv .lookupInput img
+                {
+                vertical-align: middle;
+                }
+                .quickCreateModule .lookupInput input {
+                max-width: 155px
+                }
+                .lookupIcon {
+                background-image: url(/img/func_icons/util/lookup20.gif);
+                background-position: 0 0;
+                width: 20px;
+                height: 20px;
+                background-position: top left
+                }
+                .lookupIconOn {
+                background-image: url(/img/func_icons/util/lookup20.gif);
+                background-position: 0 0;
+                width: 20px;
+                height: 20px;
+                background-position: top right
+                }
+                #legend{
+                font-weight: bolder; font-size: 16px;
+                }
+            </style>    
+        </head>
+        <!-- Page content starts -->
+        <apex:form id="theForm" styleClass="myFormStyle"  html-formnovalidate="formnovalidate" >
+            <apex:pageMessages id="pageMSG" >
+            </apex:pageMessages>
+            <div id="container" style="border:1px solid; padding: 0 1rem 0 1rem;" >
+                
+                <apex:pageBlock id="pageblock1" mode="maindetail">  <!-- -------------- Top Section:  -------------- -->
+                    <div>
+                        <b> <span style="margin: 0 1% 0 1%; font-size:1rem">Journal Detail </span> </b>
+                        <!-- -------------- Save button will save the input data and redirect the user into the detail page of newly created Master record. -------------- -->
+                        <apex:commandButton action="{!save_custom}" value="Save" style="background-color:red; color:black;font-weight: bold;  padding: .5rem 2rem .5rem 2rem; margin: .5rem 1rem 1rem 0; " />
+                        <apex:commandButton action="{!cancel}" value="Discard"  immediate="true"   style="background-color:#5B5DFE; color:black;font-weight: bold;  padding: .5rem 2rem .5rem 2rem; margin: .5rem 1rem 1rem 0; " />
+                        <!-- immediate = true : don't perform validation before cancel operation; reRender= decide what to do after SAVE operation -->
+                        <br/>
+                        <apex:pageBlockSection >
+                            <apex:pageBlockSectionItem > <!-- -------------- Select the Journal Type -------------- -->
+                                <apex:actionRegion >
+                                    <apex:outputPanel >
+                                        <apex:outputLabel style="margin: 0 1.2rem 0 2.2rem" > Journal Type </apex:outputLabel>
+                                        <apex:selectList id="picklistToChangeVF" value="{!selectedRT}" size="1" multiselect="false" >
+                                            <apex:selectOption itemValue="None" itemlabel="None" />
+                                            <apex:selectOption itemValue="Sales" itemlabel="Sales Invoice" />
+                                            <apex:selectOption itemValue="Payable" itemlabel="Payable Invoice"  />  
+                                            <apex:selectOption itemValue="Bank" itemlabel="Bank"  />
+                                            <apex:selectOption itemValue="Manual" itemlabel="Manual Journal"  />
+                                            <apex:actionSupport reRender="areaForList" event="onchange" action="{!onChangeFnCall}" /> 
+                                        </apex:selectList>
+                                    </apex:outputPanel>
+                                </apex:actionRegion>
+                                
+                               <b> Guidelines: </b> 
+                                <li> Select the "Journal Type" first (before entering any other data) </li>
+                                <li> You may upload the screenshot of your journal transaction at the bottom of this page </li>
+                            </apex:pageBlockSectionItem>
+                            <apex:pageBlockSection >
+                            </apex:pageBlockSection>
+                        </apex:pageBlockSection>
+                    </div>
+                </apex:pageBlock>  <!-- -------------- End of Top Section ---------------->
+                
+                <apex:pageBlock id="areaForList"> <!-------------- Area which will rerender based on user selection on JOURNAL TYPE -------------->
+                    
+                    <!--  -----------------------------------------------------  Bank Account -------------------------------------- --- -->
+                    <apex:pageBlock rendered="{!pb1Rendered}" mode="maindetail">
+                        <apex:outputPanel styleClass="blocksection3" layout="block">
+                            <apex:pageBlockSection title="Bank Journal " >
+                                <apex:pageBlockSection columns="1">
+                                    <apex:pageBlockSectionItem helpText="Bank Account">
+                                        <apex:outputLabel >Bank Account</apex:outputLabel>
+                                        <c:TypeAheadComponent2 allowClear="true" importJquery="true" labelField="Name" SObject="Bank_Account__c" valueField="Id" targetField="{!BankAccount}" style="width:200px" id="autoBank">
+                                         </c:TypeAheadComponent2>
+                                    </apex:pageBlockSectionItem> 
+                                    <apex:pageBlockSectionItem helpText="Company is a required field. User must choose a company. Search for Company, Type 'A' and press the submit button to get the value starting with A">
+                                        <apex:outputLabel >Company</apex:outputLabel>
+                                        <c:TypeAheadComponent2 allowClear="true" importJquery="true" labelField="Name" SObject="Company__c" valueField="Id" targetField="{!Company}" style="width:200px" id="autocompany">
+                                        </c:TypeAheadComponent2>
+                                    </apex:pageBlockSectionItem> 
+                                    <apex:inputField value="{!objJour.Journal_Currency__c}"  style="width:200px;"/>
+                                </apex:pageBlockSection>
+                                <apex:pageBlockSection columns="1" >
+                                    <apex:inputField value="{!objJour.Reference__c}"  style="width:200px"/>
+                                    <apex:inputField value="{!objJour.Journal_Description__c}"  style="width:200px"/>
+                                    <apex:inputField value="{!objJour.Journal_Date__c}"/>
+                                </apex:pageBlockSection>
+                            </apex:pageBlockSection>
+                        </apex:outputPanel>
+                        <!-- Line Item -->
+                        <fieldset id="fieldset" >
+                            <legend id="legend">Line Item</legend>
+                            <apex:actionRegion >
+                                <div id="placeholder">
+                                    <div id="template">
+                                        <apex:outputPanel id="line-item-table-row-bank" >
+                                            <apex:pageBlockSection columns="1" >
+                                                <!-- 1st Line Item -->
+                                                <apex:pageBlockTable value="{!listWrapper}" var="Line" style="width:70%" >
+                                                    <apex:column headerValue="Offset Amount" >
+                                                        <apex:inputField value="{!Line.objLine.Offset_Amount__c}" style="width:8rem"/>
+                                                    </apex:column>
+                                                    <apex:column headerValue="Offset GLA" style="width:5rem; margin:0; padding:0;">
+                                                        <c:TypeAheadComponent2 allowClear="true" importJquery="true" labelField="Name" SObject="General_Ledge_Account__c" valueField="Id" targetField="{!Line.GLA2}"  style="width:15rem" />
+                                                    </apex:column>  
+                                                    <apex:column headerValue="Type" style="width:0.70rem; margin:0" >       
+                                                        <apex:inputField value="{!Line.objLine.Line_Type__c}" />  
+                                                    </apex:column>
+                                                    <apex:column headerValue="Account" styleClass=" margin:0; padding:0; " > 
+                                                        <c:TypeAheadComponent2 allowClear="true" importJquery="true" labelField="Name" SObject="Account" valueField="Id" targetField="{!Line.Account}"  style="width:10rem; margin:0" id="acc" />
+                                                    </apex:column>
+                                                    <apex:column headerValue="Dimension" style=" margin:0; padding:0;" > 
+                                                        <c:TypeAheadComponent2 allowClear="true" importJquery="true" labelField="Name" SObject="Dimension__c" valueField="Id" targetField="{!Line.Dimension}" style="width:10rem; margin:0; padding:0;" id="dim" />
+                                                    </apex:column>
+                                                 <!--   <apex:column headerValue="General Ledger Account" style="margin:0" >                  
+                                                        <c:TypeAheadComponent2 allowClear="true" importJquery="true" labelField="Name" SObject="General_Ledge_Account__c" valueField="Id" targetField="{!Line.GLA}" style="width:10rem; margin:0"  />
+                                                    </apex:column>    
+                                                -->
+                                                </apex:pageBlockTable>
+                                                <!-- 2nd Line Item contains only 2/3 columns -->
+                                                <apex:pageBlockTable value="{!listWrapper2}" var="Line2" style="width:25%" >
+                                                    <apex:column >
+                                                        <apex:inputField value="{!Line2.objLine.Amount__c}" style="width:8rem"/>
+                                                    </apex:column>
+                                                    <apex:column style="width:5rem; margin:0; padding:0;">
+                                                        <c:TypeAheadComponent2 allowClear="true" importJquery="true" labelField="Name" SObject="General_Ledge_Account__c" valueField="Id" targetField="{!Line2.GLA2}"  style="width:15rem" />
+                                                    </apex:column>  
+                                                </apex:pageBlockTable>
+                                            </apex:pageBlockSection>
+                                        </apex:outputPanel>
+                                    </div> <!-- template -->
+                                </div> <!-- placeholder -->
+                                
+                                <!-- Add more Line Item by clicking the "Add Line" button in the page -->
+                                <apex:commandButton action="{!addLineItem}" value="Add Line" reRender="line-item-table-row-bank"  />   
+                                <apex:commandButton action="{!deleteLineItem}" value="Delete Line" reRender="line-item-table-row-bank" immediate="true" />   <!-- Add line funcitionality -->
+                            </apex:actionRegion>
+                        </fieldset>
+                    </apex:pageBlock>
+                    
+                    <!-- ------------------------------------------ Manual ------------------------------>
+                    <apex:pageBlock rendered="{!pb2Rendered}" mode="maindetail" >
+                        <apex:outputPanel styleClass="blocksection3" layout="block">
+                            <apex:pageBlockSection title="Manual Journal" >
+                                <apex:pageBlockSection columns="1" >
+                                    <apex:pageBlockSectionItem helpText="Company is a required field. User must choose a company. Search for Company, Type 'T' and press the submit button to get the value starting with T">
+                                        <apex:outputLabel >Company</apex:outputLabel>
+                                        <c:TypeAheadComponent2 allowClear="true" importJquery="true" labelField="Name" SObject="Company__c" valueField="Id" targetField="{!Company}" style="width:14rem"/>
+                                    </apex:pageBlockSectionItem> 
+                                    <apex:inputField value="{!objJour.Journal_Currency__c}"  style="width:14rem" />
+                                    <apex:inputField value="{!objJour.Reference__c}" style="width:14rem"/>
+                                    <apex:inputField value="{!objJour.Journal_Description__c}" style="width:14rem"/>
+                                </apex:pageBlockSection>
+                                <apex:pageBlockSection columns="1" >
+                                    <apex:inputField value="{!objJour.Journal_Date__c}"/>
+                                    <apex:inputField value="{!objJour.Period__c}"/>
+                                    <apex:inputField value="{!objJour.Debits__c}"/>
+                                    <apex:inputField value="{!objJour.Credits__c}"/>
+                                    <apex:inputField value="{!objJour.Total__c}"/>
+                                    <apex:inputField value="{!objJour.Invoice_Number__c}"/>  
+                                </apex:pageBlockSection>
+                            </apex:pageBlockSection>
+                        </apex:outputPanel>
+                        <!-- Line Item -->
+                        <fieldset id="fieldset" >
+                            <legend id="legend">Line Item</legend>
+                            <apex:actionRegion >
+                                <div id="placeholder">
+                                    <div id="template">
+                                        <apex:outputPanel id="line-item-table-row-manual" >
+                                            <apex:pageBlockTable value="{!listWrapper}" var="Line" style="width:100%" >
+                                                <apex:column headerValue="Type" style="width:0.70rem; margin:0" >       
+                                                    <apex:inputField value="{!Line.objLine.Line_Type__c}" />  
+                                                </apex:column>
+                                                <apex:column headerValue="Account" styleClass=" margin:0; padding:0; " > 
+                                                    <c:TypeAheadComponent2 allowClear="true" importJquery="true" labelField="Name" SObject="Account" valueField="Id" targetField="{!Line.Account}"  style="width:10rem; margin:0" id="acc" />
+                                                </apex:column>
+                                                <apex:column headerValue="Dimension" style=" margin:0; padding:0;" > 
+                                                    <c:TypeAheadComponent2 allowClear="true" importJquery="true" labelField="Name" SObject="Dimension__c" valueField="Id" targetField="{!Line.Dimension}" style="width:12rem; margin:0; padding:0;" id="dim" />
+                                                </apex:column>
+                                                <apex:column headerValue="General Ledger Account" style="margin:0" >                  
+                                                    <c:TypeAheadComponent2 allowClear="true" importJquery="true" labelField="Name" SObject="General_Ledge_Account__c" valueField="Id" targetField="{!Line.GLA}" style="width:12rem; margin:0"  />
+                                                </apex:column>    
+                                                <apex:column headerValue="Amount" >
+                                                    <apex:inputField value="{!Line.objLine.Amount__c}" style="width:4rem"  />
+                                                </apex:column>
+                                                <apex:column headerValue="Tax Code" style="width:2rem">
+                                                    <c:TypeAheadComponent2 allowClear="true" importJquery="true" labelField="Name" SObject="Tax_Code__c" valueField="Id" targetField="{!Line.TaxCode}"  style="width:10rem"/>
+                                                </apex:column>
+                                            </apex:pageBlockTable>
+                                        </apex:outputPanel>
+                                    </div> <!-- template -->
+                                </div> <!-- placeholder -->
+                                
+                                <apex:commandButton action="{!addLineItem}" value="Add Line" reRender="line-item-table-row-manual"  />   <!-- Add line funcitionality -->
+                                <apex:actionFunction action="{!deleteLineItem}" name="deleteJS" reRender="line-item-table-row-manual"  />
+                                <apex:commandButton onclick="deleteJS() ; return false;"  value="Delete Line" immediate="true"  />   <!-- Add line funcitionality  immediate="true"  --> 
+                            </apex:actionRegion>
+                        </fieldset>
+                    </apex:pageBlock>
+                    
+                    <!-- ----------------------------------------- Sales/payable invoice -----------------------++++++++++++++-->
+                    <apex:pageBlock rendered="{!pb3Rendered}" mode="maindetail">
+                        <apex:outputPanel styleClass="blocksection3" layout="block">
+                            <apex:pageBlockSection title="Journal" >
+                                <apex:pageBlockSection columns="1" >
+                                    <apex:pageBlockSectionItem helpText="Company is a required field. User must choose a company. Search for Company, Type 'A' and press the submit button to get the value starting with A">
+                                        <apex:outputLabel >Company</apex:outputLabel>
+                                        <c:TypeAheadComponent2 allowClear="true" importJquery="true" labelField="Name" SObject="Company__c" valueField="Id" targetField="{!Company}" style="width:14rem"/>
+                                    </apex:pageBlockSectionItem> 
+                                    <apex:inputField value="{!objJour.Journal_Currency__c}" style="width:14rem"/>
+                                    <apex:inputField value="{!objJour.Reference__c}" style="width:14rem"/>
+                                    <apex:inputField value="{!objJour.Journal_Description__c}" style="width:14rem"/>
+                                </apex:pageBlockSection>
+                                <apex:pageBlockSection columns="1" >
+                                    <apex:inputField value="{!objJour.Journal_Date__c}"/>
+                                    <apex:inputField value="{!objJour.Period__c}"/>
+                                    <apex:inputField value="{!objJour.Debits__c}"/>
+                                    <apex:inputField value="{!objJour.Credits__c}"/>
+                                    <apex:inputField value="{!objJour.Total__c}"/>
+                                    <apex:inputField value="{!objJour.Invoice_Number__c}"/>  
+                                </apex:pageBlockSection>
+                            </apex:pageBlockSection>
+                        </apex:outputPanel>
+                        <!--  Line Item -->
+                        <fieldset id="fieldset" >
+                            <legend id="legend">Line Item</legend>
+                            <apex:actionRegion >
+                                <div id="placeholder">
+                                    <div id="template">
+                                        <apex:outputPanel id="line-item-table-row-SalesPayable" >
+                                            <apex:pageBlockSection columns="1" >
+                                                <apex:pageBlockTable value="{!listWrapper}" var="Line" style="width:100%" >
+                                                    <apex:column headerValue="Type" style="width:0.70rem; margin:0" >       
+                                                        <apex:inputField value="{!Line.objLine.Line_Type__c}" />  
+                                                    </apex:column>
+                                                    <apex:column headerValue="Dimension" style=" margin:0; padding:0;" > 
+                                                        <c:TypeAheadComponent2 allowClear="true" importJquery="true" labelField="Name" SObject="Dimension__c" valueField="Id" targetField="{!Line.Dimension}" style="width:10rem; margin:0; padding:0;" id="dim" />
+                                                    </apex:column>
+                                                    <apex:column headerValue="General Ledger Account" style="margin:0" >                  
+                                                        <c:TypeAheadComponent2 allowClear="true" importJquery="true" labelField="Name" SObject="General_Ledge_Account__c" valueField="Id" targetField="{!Line.GLA}" style="width:15rem; margin:0"  />
+                                                    </apex:column>    
+                                                    <apex:column headerValue="Amount" >
+                                                        <apex:inputField value="{!Line.objLine.Amount__c}" style="width:6rem"/>
+                                                    </apex:column>
+                                                    <apex:column headerValue="Account" styleClass=" margin:0; padding:0; " > 
+                                                        <c:TypeAheadComponent2 allowClear="true" importJquery="true" labelField="Name" SObject="Account" valueField="Id" targetField="{!Line.Account}"  style="width:10rem; margin:0" id="acc" />
+                                                    </apex:column>
+                                                    <apex:column headerValue="Tax Code" style="width:2rem">
+                                                        <c:TypeAheadComponent2 allowClear="true" importJquery="true" labelField="Name" SObject="Tax_Code__c" valueField="Id" targetField="{!Line.TaxCode}"  style="width:10rem"/>
+                                                    </apex:column>
+                                                </apex:pageBlockTable>
+                                            </apex:pageBlockSection>
+                                        </apex:outputPanel>
+                                    </div> <!-- template -->
+                                </div> <!-- placeholder -->
+                                <!-- Add more Line Item by clicking the "Add Line" button in the page -->
+                                <apex:commandButton action="{!addLineItem}" value="Add Line" reRender="line-item-table-row-SalesPayable"  />   
+                                <apex:commandButton action="{!deleteLineItem}" value="Delete Line" reRender="line-item-table-row-SalesPayable" immediate="true" />   <!-- Add line funcitionality -->
+                            </apex:actionRegion>
+                        </fieldset>
+                    </apex:pageBlock> <!-- End of Sales Invoice section -->
+                </apex:pageBlock>  <!-- End of Area for PickList -->
+            </div> <!-- End of container div  --> 
+            
+            <!-- Journal Status -->
+            <apex:pageBlock >
+                <apex:outputPanel styleClass="blocksection3" layout="block">
+                    <apex:pageBlockSection title="Journal Status" >
+                        <apex:pageBlockSection columns="1" >
+                            <apex:inputField value="{!objJour.Journal_Status__c}"/>
+                        </apex:pageBlockSection>
+                        <apex:pageBlockSection columns="1" >
+                            <apex:inputField value="{!objJour.Discard_Reason__c}"  />
+                        </apex:pageBlockSection>
+                    </apex:pageBlockSection>
+                </apex:outputPanel>
+            </apex:pageBlock>
+            
+            <!-- Upload file -->
+            <apex:actionRegion >
+                <apex:pageBlock title="Upload a Attachment, if necessary">
+                    <apex:pageBlockSection showHeader="false" id="block1">
+                         <apex:pageBlockSection >
+                            <apex:pageBlockSectionItem >
+                                <apex:outputLabel value="File" for="file"/>
+                                <apex:inputFile fileName="{!attachment.name}" value="{!attachment.body}" id="file"/>
+                            </apex:pageBlockSectionItem>
+                        </apex:pageBlockSection>
+                        <apex:pageBlockSection >
+                            <apex:pageBlockSectionItem >
+                                <apex:outputLabel value="Description of the attachment" for="description"/>
+                                <apex:inputTextarea value="{!attachment.description}" id="description"/>
+                            </apex:pageBlockSectionItem>
+                        </apex:pageBlockSection>
+                    </apex:pageBlockSection>
+                </apex:pageBlock>
+            </apex:actionRegion>    <!-- End of Upload section -->
+        </apex:form>
+       
+    </html>
+</apex:page>
